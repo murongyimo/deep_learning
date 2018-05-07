@@ -55,11 +55,12 @@ def create_image_lists(sess, testing_percentage, validation_percentage):
     validation_images = []
     validation_labels = []
     
-#     current_label = 0
+    i = 0
     #处理各个文件夹下的子文件
     dirs = get_sub_dir(INPUT_DATA)
     for sub_dir in dirs:
-        print('processing',sub_dir)
+        print(i,'th,processing:',sub_dir)
+        i = i+1
         #标签名即为子文件夹sub_dir的名字-1,范围0~39
         _, label= os.path.split(sub_dir)
         label = int(label[1:])-1
@@ -69,16 +70,10 @@ def create_image_lists(sess, testing_percentage, validation_percentage):
         for file in files:
             image_raw_data = tf.gfile.FastGFile(file, 'rb').read()
             image = tf.image.decode_png(image_raw_data)
-            ##这里unit8转为float32格式，暂时不做处理
-#             if image.dtype != tf.float32:
-#                 image = tf.image.convert_image_dtype(image, dtype=tf.float32)
-            #image_value:numpy.ndarry类型数据
+            #将图片填充成112*112大小
+            image = tf.image.resize_image_with_crop_or_pad(image, 112, 112)
             image_value = sess.run(image)
-#             print(type(image),type(image_value))
-#             #打印图片：使用reshape处理numpy.ndarry
-#             plt.imshow(image_value.reshape(112,92), cmap=plt.get_cmap('gray'))
-#             break
-            # 随机划分数据聚。
+            # 随机划分数据集合
             chance = np.random.randint(100)
             if chance < validation_percentage:
                 validation_images.append(image_value)
@@ -95,8 +90,8 @@ def create_image_lists(sess, testing_percentage, validation_percentage):
     np.random.set_state(state)
     np.random.shuffle(training_labels)
     print('train_label[0]:',training_labels[0])
-    plt.imshow(training_images[0].reshape(112,92), cmap=plt.get_cmap('gray'))
-    
+    plt.imshow(training_images[0].reshape(112,112), cmap=plt.get_cmap('gray'))
+    plt.show()
     return np.asarray([training_images, training_labels,
                        validation_images, validation_labels,
                        testing_images, testing_labels])
