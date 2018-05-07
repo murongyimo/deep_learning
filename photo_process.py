@@ -46,6 +46,7 @@ def one_hot(label, num):
     onehot[label] = 1
     return np.array(onehot)
     
+    
 def create_image_lists(sess, testing_percentage, validation_percentage):
     #初始化数据集
     training_images = []
@@ -55,47 +56,49 @@ def create_image_lists(sess, testing_percentage, validation_percentage):
     validation_images = []
     validation_labels = []
     
-    i = 0
     #处理各个文件夹下的子文件
     dirs = get_sub_dir(INPUT_DATA)
+    i = 0
     for sub_dir in dirs:
-        print(i,'th,processing:',sub_dir)
+        print(i,'.processing:',sub_dir)
         i = i+1
         #标签名即为子文件夹sub_dir的名字-1,范围0~39
         _, label= os.path.split(sub_dir)
-        label = int(label[1:])-1
-        label_one_hot = one_hot(label, 40)
+        label = int(label[1:])-1 
+        label_one_hot=tf.cast(one_hot(label, 40), dtype=tf.float32)
         #files：sub_dir下的文件列表
         files = get_file(sub_dir)
         for file in files:
             image_raw_data = tf.gfile.FastGFile(file, 'rb').read()
             image = tf.image.decode_png(image_raw_data)
-            #将图片填充成112*112大小
+            #image_value:numpy.ndarry类型数据
             image = tf.image.resize_image_with_crop_or_pad(image, 112, 112)
-            image_value = sess.run(image)
-            # 随机划分数据集合
+            #将uint8格式转换为float32格式
+            if image.dtype != tf.float32:
+                image = tf.image.convert_image_dtype(image, dtype=tf.float32)
+            image_value, label= sess.run([image,label_one_hot]) 
+            #按照比例通过随机值划分数据集
             chance = np.random.randint(100)
             if chance < validation_percentage:
                 validation_images.append(image_value)
-                validation_labels.append(label_one_hot)
+                validation_labels.append(label)
             elif chance < (testing_percentage + validation_percentage):
                 testing_images.append(image_value)
-                testing_labels.append(label_one_hot)
+                testing_labels.append(label)
             else:
                 training_images.append(image_value)
-                training_labels.append(label_one_hot)
+                training_labels.append(label)
     # 将训练数据随机打乱以获得更好的训练效果。
     state = np.random.get_state()
     np.random.shuffle(training_images)
     np.random.set_state(state)
     np.random.shuffle(training_labels)
     print('train_label[0]:',training_labels[0])
-    plt.imshow(training_images[0].reshape(112,112), cmap=plt.get_cmap('gray'))
-    plt.show()
+    plt.imshow(training_images[0].reshape(112, 112), cmap=plt.get_cmap('gray'))
+    
     return np.asarray([training_images, training_labels,
                        validation_images, validation_labels,
                        testing_images, testing_labels])
-        
 if __name__=='__main__': 
     with tf.Session() as sess:
         photo_data = create_image_lists(sess, VALIDATION_PERCENTAGE, TEST_PERCENTAGE)
